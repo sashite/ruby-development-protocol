@@ -15,7 +15,7 @@ This specification defines strict conventions around functional programming, imm
 ## 📄 Specification
 
 Read the full protocol here:
-[Ruby Development Protocol (v1.0.0)](./index.md)
+[Ruby Development Protocol (v1.1.0)](./index.md)
 
 ## 🧪 Suggested Use
 

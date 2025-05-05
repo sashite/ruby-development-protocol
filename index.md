@@ -1,8 +1,8 @@
 # Ruby Development Protocol
 
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Author**: [Sashité](https://sashite.com/)
-**Published**: May 3, 2025
+**Published**: May 5, 2025
 **License**: MIT License
 
 ---
@@ -18,121 +18,117 @@
 
 ## 2. Object Structure
 
-1. Instance variables must only be assigned values in the `initialize` method.
-2. All objects must be frozen at the end of initialization by calling `freeze`.
-3. Use `attr_reader` for accessing instance variables; `attr_writer` and `attr_accessor` are prohibited.
-4. Methods that manage internal collections (e.g., arrays or hashes) must end with `!`.
-5. Classes should implement immutable value semantics whenever possible.
+1. Instance variables must only be assigned in `initialize`.
+2. All objects must be frozen after initialization via `freeze`.
+3. Use `attr_reader`; `attr_writer` and `attr_accessor` are prohibited.
+4. Methods mutating internal collections must end with `!`.
+5. Prefer immutable value semantics.
 
 ### Explicit Internal State Changes
 
-Objects are frozen at the end of initialization to prevent reassignment of instance variables. However, this does **not** prevent internal mutation of referenced objects such as arrays or hashes.
-
-This is **intentional**: internal collections may be altered after initialization — this does not violate the immutability principle, as long as the mutation is **explicitly marked**.
-
-#### Protocol Rule:
-
-- All methods that modify internal state (such as adding or removing elements in a collection) must end with `!`.
-- Such methods must be documented as performing side effects.
-- Direct reassignment of instance variables is still strictly prohibited after initialization.
-
-This approach allows controlled and visible evolution of an object’s internal state, while maintaining a predictable and disciplined design.
+- Internal collections (e.g., arrays, hashes) may be mutated post-initialization.
+- Mutating methods must end with `!` and be documented as having side effects.
+- Reassignment of instance variables after initialization is prohibited.
 
 ## 3. Parameters and Arguments
 
-1. Keyword arguments must be used instead of hash parameters to ensure local isolation.
-2. Flatten arguments (multiple discrete arguments) must be used instead of array parameters.
-3. All optional parameters must have explicit default values.
-4. All method arguments must be validated at the beginning of each method.
+1. Use keyword arguments instead of hash parameters.
+2. Use splat (`*args`) for ordered arguments instead of arrays.
+3. Use double splat (`**kwargs`) for named arguments instead of hashes.
+4. Optional parameters must have explicit default values.
+5. All arguments must be validated at method entry.
+
+**Examples:**
+
+```ruby
+# Recommended:
+def add(*pieces)
+  # ...
+end
+
+def load(name:, **options)
+  # ...
+end
+````
 
 ## 4. Import/Export Protocol (`from_params` / `to_params`)
 
-### Objective
-
-This protocol defines a standardized interface for initializing Ruby class instances from parameters and exporting the current instance state into parameters.
-
 ### Interface
 
-- `self.from_params(**params) → instance`
-  - Class method.
-  - Accepts a keyword parameter hash.
-  - Returns a new instance initialized with the provided parameters.
+* `self.from_params(**params) → instance`
+* `to_params() → Hash`
 
-- `to_params() → Hash`
-  - Instance method.
-  - Returns a hash representing the current state of the object.
+### Principles
 
-### Core Principles
+1. `from_params(**obj.to_params)` must reconstruct an equivalent object.
+2. `to_params` reflects current state.
+3. Output must include all reconstructable data.
+4. Original input is not preserved — only state.
 
-1. **Reversible Serialization**: For any valid instance `obj`, the expression `obj.class.from_params(**obj.to_params)` must return a functionally equivalent instance.
-2. **Dynamic State**: The result of `to_params` must reflect the *current* state of the object, even if it has changed since initialization.
-3. **Completeness**: `to_params` must include all parameters necessary to recreate the object in its current state.
-4. **History Independence**: `to_params` output is not required to match the original input to `from_params`, only the current logical state.
+### Constraints
 
-### Acceptable Behaviors
-
-- `to_params` may include default or computed values not provided at initialization.
-- Transformed or normalized values are allowed in the output hash.
-
-### Invariants
-
-- If no mutation occurs, `from_params(**obj.to_params)` should return an equivalent object.
-- If `a.to_params == b.to_params`, then `a` and `b` must be logically equivalent.
-- `from_params` must be a pure function.
-
-### Use Cases
-
-This protocol facilitates:
-
-- Persistence and state restoration
-- Serialization for network transmission
-- Deep cloning
-- Test reproducibility
-- Cross-environment interoperability
+* `from_params` must be pure.
+* Objects with identical `to_params` are logically equivalent.
 
 ## 5. References and Constants
 
-1. Root-level constants must be referenced using the `::` prefix (e.g., `::String`, `::ArgumentError`).
-2. Dependencies must be explicitly declared.
-3. Only simple types must be used; type mixins are prohibited.
+1. Use `::` for top-level constants (e.g., `::String`).
+2. Declare dependencies explicitly.
+3. Avoid type mixins. Use only simple types.
 
 ## 6. Method Conventions
 
-1. Methods ending with `!` must perform a side effect and return `nil`.
-2. Methods ending with `?` must return a boolean result.
-3. Return types must be consistent within a method family.
-4. Methods with the same name across modules/classes must return the same type.
-5. Boolean-returning methods must not use `is_` or `has_` prefixes.
-6. Methods must return a single type (or `nil`). Returning different types based on conditions is prohibited.
+1. `!` methods perform side effects and return `nil`.
+2. `?` methods return booleans.
+3. Return types must be consistent within method families.
+4. Identical method names across classes must return the same type.
+5. Do not prefix booleans with `is_` or `has_`.
+6. Methods must return a single type (or `nil`).
 
 ## 7. Naming Conventions
 
-1. All identifiers must use explicit and descriptive names.
-2. Array variable names must end with an `s`.
+1. Names must be explicit and descriptive.
+2. Arrays must have names ending in `s`.
 3. All names must be in technical English.
-4. The default primary method name of an object must be `call`.
-5. Constant names must use capitalized (CamelCase) identifiers.
+4. Default method name should be `call`.
+5. Constants use CamelCase.
 
 ## 8. Error Handling and Validation
 
-1. All input parameters must be validated before use.
-2. Exceptions must be raised for any parameter anomalies.
-3. Exceptions must be explicit and meaningful.
-4. Expected types must be documented in comments.
-5. Input/state validation must follow a fail-fast approach.
-6. Methods that may raise exceptions must document them clearly.
+1. Validate all inputs before use.
+2. Raise explicit exceptions on anomalies.
+3. Document expected types in comments.
+4. Follow fail-fast design.
+5. Clearly document exceptions.
 
 ## 9. Security and Safety
 
-1. Methods interacting with external systems must be isolated in dedicated classes or methods.
+1. External system calls must be isolated in dedicated methods or classes.
 
 ## 10. Documentation
 
-1. Documentation must explain *intention*, not *implementation*.
-2. Parameter and return types must be specified.
-3. Potential side effects must be documented.
-4. All documentation must be written in technical English.
+1. Document intention, not implementation.
+2. Specify parameter and return types.
+3. Document all side effects.
+4. Write all documentation in technical English.
+
+## 11. Type Coercion
+
+Prefer Kernel methods over object methods for type conversion:
+
+* Use `String(x)`, `Array(x)`, `Integer(x)` instead of `x.to_s`, `x.to_a`, `x.to_i`, etc.
+* These conversions are safer, more explicit, and fail predictably on invalid input.
+
+**Example:**
+
+```ruby
+# Recommended:
+def format_name(input)
+  name = String(input) # raises if input is invalid
+  # ...
+end
+```
 
 ---
 
-Copyright © 2011 [Sashité](https://sashite.com/).
+Copyright © 2011–2025 [Sashité](https://sashite.com/)
